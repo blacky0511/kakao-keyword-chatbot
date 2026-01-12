@@ -43,14 +43,15 @@ function formatNumber(num: number): string {
  */
 export function formatSearchVolumeMessage(result: SearchVolumeResult): string {
   const lines = [
-    '키워드 검색량 조회',
+    '네이버 검색량 조회',
     '',
-    `[${result.keyword}]`,
-    `총 검색량: ${formatNumber(result.totalVolume)}건`,
-    `PC: ${formatNumber(result.pcVolume)} (${result.pcRatio}%)`,
-    `MOBILE: ${formatNumber(result.mobileVolume)} (${result.mobileRatio}%)`,
+    `🔍 [${result.keyword}]`,
     '',
-    `통계 기간: ${result.period.start} ~ ${result.period.end}`,
+    `PC: ${formatNumber(result.pcVolume)}`,
+    `모바일: ${formatNumber(result.mobileVolume)}`,
+    `총 검색량: ${formatNumber(result.totalVolume)}`,
+    '',
+    '통계기간: 최근 30일',
   ]
 
   return lines.join('\n')
