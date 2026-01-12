@@ -2,63 +2,112 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { KakaoSkillPayload } from '@/lib/kakao/types'
 import {
   createErrorResponse,
-  createSearchVolumeResponse,
   createNotFoundResponse,
-  createHelpResponse,
+  createMultipleSearchVolumeResponse,
+  createRelatedKeywordsResponse,
+  createPowerLinkResponse,
+  createMarketingResponse,
+  createModeSelectResponse,
+  createResponseWithQuickReplies,
 } from '@/lib/kakao/response'
-import { getKeywordSearchVolume } from '@/lib/naver/keywordTool'
+import {
+  getMultipleKeywordSearchVolume,
+  getRelatedKeywords,
+  getPowerLinkInfo,
+} from '@/lib/naver/keywordTool'
+
+// 사용자별 현재 모드 저장 (메모리 기반 - 서버 재시작 시 초기화됨)
+const userModes: Map<string, string> = new Map()
 
 /**
  * 카카오톡 챗봇 스킬 웹훅 엔드포인트
- *
- * 사용자가 카카오톡 채널에 메시지를 보내면 이 엔드포인트가 호출됩니다.
- * 키워드를 받아서 네이버 검색량을 조회하고 결과를 반환합니다.
  */
 export async function POST(request: NextRequest) {
   try {
-    // 카카오에서 보낸 요청 데이터 파싱
     const payload: KakaoSkillPayload = await request.json()
-
-    // 사용자가 입력한 메시지 (키워드)
     const utterance = payload.userRequest.utterance.trim()
+    const userId = payload.userRequest.user.id
 
-    console.log(`[카카오 웹훅] 사용자 입력: "${utterance}"`)
-
-    // 도움말 명령어 처리
-    if (utterance === '도움말' || utterance === '사용법' || utterance === '?') {
-      return NextResponse.json(createHelpResponse())
-    }
+    console.log(`[카카오 웹훅] 사용자(${userId}) 입력: "${utterance}"`)
 
     // 빈 입력 처리
     if (!utterance) {
       return NextResponse.json(
-        createErrorResponse('키워드를 입력해 주세요.')
+        createResponseWithQuickReplies('조회할 키워드를 입력해 주세요.')
       )
     }
 
-    // 키워드가 너무 긴 경우 처리
-    if (utterance.length > 50) {
+    // 메뉴 버튼 클릭 처리
+    if (utterance === '검색량') {
+      userModes.set(userId, '검색량')
+      return NextResponse.json(createModeSelectResponse('검색량'))
+    }
+
+    if (utterance === '연관검색어') {
+      userModes.set(userId, '연관검색어')
+      return NextResponse.json(createModeSelectResponse('연관검색어'))
+    }
+
+    if (utterance === '파워링크') {
+      userModes.set(userId, '파워링크')
+      return NextResponse.json(createModeSelectResponse('파워링크'))
+    }
+
+    if (utterance === '마케팅문의') {
+      return NextResponse.json(createMarketingResponse())
+    }
+
+    // 현재 모드 확인 (기본값: 검색량)
+    const currentMode = userModes.get(userId) || '검색량'
+
+    // 모드별 처리
+    if (currentMode === '연관검색어') {
+      // 연관검색어 조회
+      const result = await getRelatedKeywords(utterance)
+      if (!result) {
+        return NextResponse.json(createNotFoundResponse(utterance))
+      }
+      return NextResponse.json(createRelatedKeywordsResponse(result))
+    }
+
+    if (currentMode === '파워링크') {
+      // 파워링크 단가 조회
+      const result = await getPowerLinkInfo(utterance)
+      if (!result) {
+        return NextResponse.json(createNotFoundResponse(utterance))
+      }
+      return NextResponse.json(createPowerLinkResponse(result))
+    }
+
+    // 기본 모드: 검색량 조회
+    // 콤마로 구분된 여러 키워드 처리
+    const keywords = utterance.split(',').map((k) => k.trim()).filter((k) => k.length > 0)
+
+    if (keywords.length === 0) {
       return NextResponse.json(
-        createErrorResponse('키워드가 너무 깁니다. 50자 이내로 입력해 주세요.')
+        createResponseWithQuickReplies('조회할 키워드를 입력해 주세요.')
       )
     }
 
-    // 네이버 검색량 조회
-    const result = await getKeywordSearchVolume(utterance)
+    // 최대 10개 제한
+    if (keywords.length > 10) {
+      return NextResponse.json(
+        createResponseWithQuickReplies('키워드는 최대 10개까지 조회 가능합니다.')
+      )
+    }
 
-    // 결과가 없는 경우
-    if (!result) {
+    // 검색량 조회
+    const results = await getMultipleKeywordSearchVolume(keywords)
+
+    if (results.length === 0) {
       return NextResponse.json(createNotFoundResponse(utterance))
     }
 
-    // 검색량 결과 반환
-    console.log(`[카카오 웹훅] 검색량 조회 성공: ${result.keyword} - ${result.totalVolume}건`)
-    return NextResponse.json(createSearchVolumeResponse(result))
+    console.log(`[카카오 웹훅] 검색량 조회 성공: ${results.length}개 키워드`)
+    return NextResponse.json(createMultipleSearchVolumeResponse(results))
   } catch (error) {
-    // 에러 로깅
     console.error('[카카오 웹훅] 오류 발생:', error)
 
-    // 에러 메시지 생성
     const errorMessage =
       error instanceof Error
         ? error.message
@@ -70,7 +119,6 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET 요청 처리 (헬스 체크용)
- * 스킬 URL이 제대로 동작하는지 확인할 때 사용합니다.
  */
 export async function GET() {
   return NextResponse.json({
