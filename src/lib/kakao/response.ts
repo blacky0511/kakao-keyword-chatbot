@@ -1,4 +1,4 @@
-import type { KakaoSkillResponse, KakaoQuickReply } from './types'
+import type { KakaoSkillResponse } from './types'
 import type { SearchVolumeResult, RelatedKeywordResult, PowerLinkResult } from '../naver/keywordTool'
 
 // 마케팅 문의 URL
@@ -178,42 +178,7 @@ export function createPowerLinkResponse(result: PowerLinkResult): KakaoSkillResp
  * 메뉴 버튼(QuickReplies)을 포함한 응답을 생성합니다
  */
 export function createResponseWithQuickReplies(text: string): KakaoSkillResponse {
-  const quickReplies: KakaoQuickReply[] = [
-    {
-      label: '검색량 조회',
-      action: 'message',
-      messageText: '검색량',
-    },
-    {
-      label: '연관검색어',
-      action: 'message',
-      messageText: '연관검색어',
-    },
-    {
-      label: '파워링크 단가',
-      action: 'message',
-      messageText: '파워링크',
-    },
-    {
-      label: '마케팅 문의',
-      action: 'message',
-      messageText: '마케팅문의',
-    },
-  ]
-
-  return {
-    version: '2.0',
-    template: {
-      outputs: [
-        {
-          simpleText: {
-            text,
-          },
-        },
-      ],
-      quickReplies,
-    },
-  }
+  return createSimpleTextResponse(text)
 }
 
 /**

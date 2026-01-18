@@ -6,7 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup": "powershell -ExecutionPolicy Bypass -File ./setup-windows.ps1",
+    "start:both": "powershell -ExecutionPolicy Bypass -File ./start-servers.ps1 -Mode prod",
+    "dev:both": "powershell -ExecutionPolicy Bypass -File ./start-servers.ps1 -Mode dev",
+    "pm2:start": "pm2 start pm2.config.cjs",
+    "pm2:stop": "pm2 stop all",
+    "pm2:restart": "pm2 restart all",
+    "pm2:logs": "pm2 logs",
+    "pm2:monit": "pm2 monit",
+    "pm2:list": "pm2 list"
   },
   "dependencies": {
     "next": "16.1.1",
